@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full bg-slate-950 text-slate-100 font-sans">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>SIA-18 | Sistema Inteligente de Armamento y Municiones</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            tactical: {
+              900: '#0b111e',
+              800: '#131e32',
+              700: '#1e2d4a',
+              accent: '#10b981', // emerald-500
+              warning: '#f59e0b', // amber-500
+              danger: '#ef4444' // red-500
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Custom Scrollbar for Tactical Feel */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0b111e;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1e2d4a;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #10b981;
+    }
+    .scanner-line {
+      animation: scan 2s infinite ease-in-out;
+    }
+    @keyframes scan {
+      0%, 100% { top: 0%; }
+      50% { top: 90%; }
+    }
+  </style>
+</head>
+<body class="h-full flex flex-col bg-slate-950 text-slate-100 antialiased selection:bg-emerald-500 selection:text-slate-950">
+
+  <!-- Top Navigation Header -->
+  <header class="bg-slate-900 border-b border-slate-800 px-4 py-3 flex items-center justify-between sticky top-0 z-40 shadow-lg">
+    <div class="flex items-center space-x-3">
+      <div class="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 p-2 rounded-lg">
+        <i class="fa-solid font-bold fa-shield-halved text-xl"></i>
+      </div>
+      <div>
+        <h1 class="font-bold text-base tracking-wider uppercase text-slate-100 flex items-center gap-2">
+          SIA-18 <span class="bg-emerald-500/20 text-emerald-400 text-xs px-2 py-0.5 rounded border border-emerald-500/30 font-mono">IA ACTIVA</span>
+        </h1>
+        <p class="text-xs text-slate-400">Control de Armamento & Municiones</p>
+      </div>
+    </div>
+    
+    <!-- Active Warehouse Indicator -->
+    <div class="flex items-center space-x-2">
+      <div class="text-right">
+        <label class="text-[10px] uppercase text-slate-400 font-semibold block">Almacén Actual</label>
+        <select id="globalWarehouseSelect" onchange="changeGlobalWarehouse(this.value)" class="bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded px-2 py-1 focus:outline-none focus:border-emerald-500">
+          <!-- Populated by JS (Almacén 01 to 18) -->
+        </select>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="flex-1 overflow-y-auto pb-20 md:pb-6 p-4 max-w-5xl w-full mx-auto">
+    
+    <!-- Notification Banner / AI Alerts Header -->
+    <div id="aiAnomalyBanner" class="hidden mb-4 bg-amber-500/10 border border-amber-500/40 rounded-xl p-3 text-amber-300 text-xs flex items-start gap-3 shadow-inner">
+      <i class="fa-solid fa-triangle-exclamation text-amber-400 text-base mt-0.5"></i>
+      <div class="flex-1">
+        <span class="font-bold block text-amber-200">ALERTA DE AUDITORÍA IA DETECTADA</span>
+        <span id="aiAnomalyText">Movimiento atípico detectado en Almacén 04. Alta salida de munición 9mm fuera de horario de instrucción.</span>
+      </div>
+      <button onclick="dismissBanner()" class="text-amber-400 hover:text-amber-200 p-1">
+        <i class="fa-solid fa-xmark text-sm"></i>
+      </button>
+    </div>
+
+    <!-- VIEW 1: DASHBOARD / INVENTORY SUMMARY -->
+    <section id="view-dashboard" class="space-y-4">
+      
+      <!-- Metrics Overview Cards -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 flex flex-col justify-between shadow">
+          <div class="flex justify-between items-center text-slate-400 text-xs font-medium">
+            <span>Total Armas</span>
+            <i class="fa-solid fa-gun text-emerald-400"></i>
+          </div>
+          <div class="mt-2 flex items-baseline justify-between">
+            <span id="statTotalWeapons" class="text-2xl font-black text-slate-100 font-mono">0</span>
+            <span class="text-[10px] text-emerald-400 font-semibold">Operativas</span>
+          </div>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 flex flex-col justify-between shadow">
+          <div class="flex justify-between items-center text-slate-400 text-xs font-medium">
+            <span>Total Munición</span>
+            <i class="fa-solid fa-box-archive text-emerald-400"></i>
+          </div>
+          <div class="mt-2 flex items-baseline justify-between">
+            <span id="statTotalAmmo" class="text-2xl font-black text-slate-100 font-mono">0</span>
+            <span class="text-[10px] text-slate-400">Unidades</span>
+          </div>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 flex flex-col justify-between shadow">
+          <div class="flex justify-between items-center text-slate-400 text-xs font-medium">
+            <span>Almacenes</span>
+            <i class="fa-solid fa-warehouse text-emerald-400"></i>
+          </div>
+          <div class="mt-2 flex items-baseline justify-between">
+            <span class="text-2xl font-black text-slate-100 font-mono">18</span>
+            <span class="text-[10px] text-emerald-400">Monitoreados</span>
+          </div>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 flex flex-col justify-between shadow">
+          <div class="flex justify-between items-center text-slate-400 text-xs font-medium">
+            <span>Alertas IA</span>
+            <i class="fa-solid fa-robot text-amber-400"></i>
+          </div>
+          <div class="mt-2 flex items-baseline justify-between">
+            <span id="statAlertCount" class="text-2xl font-black text-amber-400 font-mono">1</span>
+            <span class="text-[10px] text-amber-400 font-semibold">Requiere revisión</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Scan & Action Bar -->
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 flex gap-2">
+        <button onclick="openScannerModal()" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold py-2.5 px-3 rounded-lg text-xs flex items-center justify-center gap-2 transition active:scale-95 shadow-md shadow-emerald-900/20">
+          <i class="fa-solid fa-qrcode text-sm"></i>
+          <span>Escanear Código / Serial</span>
+        </button>
+        <button onclick="switchTab('movement')" class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-100 font-semibold py-2.5 px-3 rounded-lg text-xs border border-slate-700 flex items-center justify-center gap-2 transition active:scale-95">
+          <i class="fa-solid fa-arrow-right-arrow-left text-slate-400"></i>
+          <span>Nuevo Movimiento</span>
+        </button>
+      </div>
+
+      <!-- Selected Warehouse Stock Inventory Table -->
+      <div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow">
+        <div class="p-3 bg-slate-900/80 border-b border-slate-800 flex items-center justify-between">
+          <h2 class="font-bold text-sm text-slate-200 flex items-center gap-2">
+            <i class="fa-solid fa-boxes-stacked text-emerald-400"></i>
+            Stock en <span id="currentWarehouseTitle" class="text-emerald-400">Almacén 01</span>
+          </h2>
+          <span class="text-[11px] text-slate-400" id="stockItemCount">0 Categorías</span>
+        </div>
+
+        <div class="divide-y divide-slate-800/60" id="stockListContainer">
+          <!-- Inventory items injected by JS -->
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW 2: REGISTRAR MOVIMIENTO -->
+    <section id="view-movement" class="hidden space-y-4">
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-lg">
+        <h2 class="text-base font-bold text-slate-100 mb-1 flex items-center gap-2">
+          <i class="fa-solid fa-file-pen text-emerald-400"></i> Registro de Entrada / Salida / Traslado
+        </h2>
+        <p class="text-xs text-slate-400 mb-4">Complete los datos. La IA validará la transacción antes de confirmar.</p>
+
+        <form id="movementForm" onsubmit="handleMovementSubmit(event)" class="space-y-4">
+          
+          <!-- Movement Type Tabs -->
+          <div>
+            <label class="text-xs font-semibold text-slate-400 uppercase mb-1 block">Tipo de Operación</label>
+            <div class="grid grid-cols-3 gap-2 bg-slate-950 p-1 rounded-lg border border-slate-800">
+              <button type="button" onclick="setMovementType('ENTRADA')" id="btnTypeEntrada" class="mov-type-btn py-2 rounded-md text-xs font-bold transition flex items-center justify-center gap-1.5 bg-emerald-600 text-slate-950">
+                <i class="fa-solid fa-arrow-down"></i> Entrada
+              </button>
+              <button type="button" onclick="setMovementType('SALIDA')" id="btnTypeSalida" class="mov-type-btn py-2 rounded-md text-xs font-bold transition flex items-center justify-center gap-1.5 text-slate-400 hover:text-slate-200">
+                <i class="fa-solid fa-arrow-up"></i> Salida
+              </button>
+              <button type="button" onclick="setMovementType('TRASLADO')" id="btnTypeTraslado" class="mov-type-btn py-2 rounded-md text-xs font-bold transition flex items-center justify-center gap-1.5 text-slate-400 hover:text-slate-200">
+                <i class="fa-solid fa-arrows-rotate"></i> Traslado
+              </button>
+            </div>
+          </div>
+
+          <!-- Warehouses Selection -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label class="text-xs font-semibold text-slate-400 uppercase mb-1 block">Almacén Origen</label>
+              <select id="movOriginWarehouse" class="w-full bg-slate-950 border border-slate-700 text-slate-100 text-xs rounded-lg p-2.5 focus:border-emerald-500 focus:outline-none">
+                <!-- Populated by JS -->
+              </select>
+            </div>
+            
+            <div id="destWarehouseGroup" class="hidden">
+              <label class="text-xs font-semibold text-slate-400 uppercase mb-1 block">Almacén Destino</label>
+              <select id="movDestWarehouse" class="w-full bg-slate-950 border border-slate-700 text-slate-100 text-xs rounded-lg p-2.5 focus:border-emerald-500 focus:outline-none">
+                <!-- Populated by JS -->
+              </select>
+            </div>
+          </div>
+
+          <!-- Item Selection & Serial/Lot -->
+          <div class="space-y-3 pt-2 border-t border-slate-800">
+            <div>
+              <label class="text-xs font-semibold text-slate-400 uppercase mb-1 block">Artículo / Categoria</label>
+              <select id="movItemSelect" onchange="updateItemFormFields()" class="w-full bg-slate-950 border border-slate-700 text-slate-100 text-xs rounded-lg p-2.5 focus:border-emerald-500 focus:outline-none">
+                <!-- Populated by JS -->
+              </select>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="text-xs font-semibold text-slate-400 uppercase mb-1 block">Cantidad</label>
+                <input type="number" id="movQuantity" min="1" value="1" required class="w-full bg-slate-950 border border-slate-700 text-slate-100 text-xs rounded-lg p-2.5 focus:border-emerald-500 focus:outline-none font-mono">
+              </div>
+              <div>
+                <label class="text-xs font-semibold text-slate-400 uppercase mb-1 block" id="lblSerialOrLot">Nº de Serie / Lote</label>
+                <div class="relative">
+                  <input type="text" id="movSerialLot" placeholder="Ej: FAL-98231 / LOT-2026-9" required class="w-full bg-slate-950 border border-slate-700 text-slate-100 text-xs rounded-lg p-2.5 pr-8 focus:border-emerald-500 focus:outline-none font-mono">
+                  <button type="button" onclick="openScannerModal()" class="absolute right-2 top-2 text-slate-400 hover:text-emerald-400">
+                    <i class="fa-solid fa-barcode text-sm"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Authorization & User Details -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 border-t border-slate-800">
+            <div>
+              <label class="text-xs font-semibold text-slate-400 uppercase mb-1 block">Oficial Autoriza</label>
+              <input type="text" id="movAuthorizer" placeholder="Nombre / Rango" required class="w-full bg-slate-950 border border-slate-700 text-slate-100 text-xs rounded-lg p-2.5 focus:border-emerald-500 focus:outline-none">
+            </div>
+            <div>
+              <label class="text-xs font-semibold text-slate-400 uppercase mb-1 block">Motivo / Orden de Servicio</label>
+              <input type="text" id="movReason" placeholder="Ej: Practica de tiro / Mantenimiento" required class="w-full bg-slate-950 border border-slate-700 text-slate-100 text-xs rounded-lg p-2.5 focus:border-emerald-500 focus:outline-none">
+            </div>
+          </div>
+
+          <!-- Submit button -->
+          <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold py-3 rounded-lg text-sm flex items-center justify-center gap-2 transition shadow-md shadow-emerald-900/30">
+            <i class="fa-solid fa-check-double"></i>
+            <span>Validar y Registrar Movimiento</span>
+          </button>
+        </form>
+      </div>
+    </section>
+
+    <!-- VIEW 3: ASISTENTE IA DE AUDITORÍA -->
+    <section id="view-ai" class="hidden space-y-4">
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-lg flex flex-col h-[75vh]">
+        
+        <!-- AI Header -->
+        <div class="border-b border-slate-800 pb-3 flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <div class="w-3 h-3 rounded-full bg-emerald-500 animate-pulse"></div>
+            <h2 class="font-bold text-sm text-slate-100">Asistente Virtual de Auditoría & Control</h2>
+          </div>
+          <span class="text-[10px] bg-slate-800 text-slate-300 border border-slate-700 px-2 py-0.5 rounded-full font-mono">Modelo SIA-v3.5</span>
+        </div>
+
+        <!-- Chat Area -->
+        <div id="aiChatMessages" class="flex-1 overflow-y-auto my-3 space-y-3 pr-1 text-xs">
+          <!-- Initial AI Greeting -->
+          <div class="flex gap-2.5 items-start">
+            <div class="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
+              <i class="fa-solid fa-robot text-xs"></i>
+            </div>
+            <div class="bg-slate-800 border border-slate-700/60 rounded-2xl rounded-tl-none p-3 text-slate-200 max-w-[85%] space-y-2">
+              <p>Saludos. Soy el módulo de Inteligencia Artificial para el monitoreo de los 18 almacenes de armamento y municiones.</p>
+              <p class="text-slate-400">Puedo informarle sobre saldos actuales, detectar discrepancias, analizar patrones de consumo o verificar anomalías recientes.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Prompt Suggestions -->
+        <div class="flex gap-1.5 overflow-x-auto pb-2 scrollbar-none text-[11px]">
+          <button onclick="sendQuickPrompt('Cual es el stock global de municion 9mm?')" class="shrink-0 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 px-2.5 py-1 rounded-full transition">
+            <i class="fa-solid fa-magnifying-glass text-emerald-400 mr-1"></i> Stock 9mm global
+          </button>
+          <button onclick="sendQuickPrompt('Resumen de alertas de seguridad')" class="shrink-0 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 px-2.5 py-1 rounded-full transition">
+            <i class="fa-solid fa-shield-cat text-amber-400 mr-1"></i> Ver Alertas
+          </button>
+          <button onclick="sendQuickPrompt('Cual almacén tiene mas fusiles 5.56mm?')" class="shrink-0 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 px-2.5 py-1 rounded-full transition">
+            <i class="fa-solid fa-gun text-emerald-400 mr-1"></i> Mayor inventario fusiles
+          </button>
+        </div>
+
+        <!-- Chat Input -->
+        <form onsubmit="handleAIChatSubmit(event)" class="flex items-center gap-2 pt-2 border-t border-slate-800">
+          <input type="text" id="aiInput" placeholder="Escriba su consulta (ej: Stock Almacén 03)..." class="flex-1 bg-slate-950 border border-slate-700 text-slate-100 text-xs rounded-lg p-2.5 focus:border-emerald-500 focus:outline-none">
+          <button type="submit" class="bg-emerald-600 hover:bg-emerald-500 text-slate-950 p-2.5 rounded-lg text-sm font-bold transition">
+            <i class="fa-solid fa-paper-plane"></i>
+          </button>
+        </form>
+      </div>
+    </section>
+
+    <!-- VIEW 4: HISTORIAL DE MOVIMIENTOS & AUDITORÍA -->
+    <section id="view-history" class="hidden space-y-4">
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-lg">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-sm font-bold text-slate-100 flex items-center gap-2">
+            <i class="fa-solid fa-clock-rotate-left text-emerald-400"></i> Historial Inmutable de Transacciones
+          </h2>
+          <button onclick="exportAuditLog()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs border border-slate-700 px-2.5 py-1.5 rounded-lg flex items-center gap-1.5">
+            <i class="fa-solid fa-file-arrow-down text-emerald-400"></i> Exportar Log
+          </button>
+        </div>
+
+        <!-- History Filter Bar -->
+        <div class="flex gap-2 mb-3">
+          <input type="text" id="historySearchInput" onkeyup="filterHistory()" placeholder="Buscar por serial, almacén o responsable..." class="flex-1 bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-lg p-2 focus:border-emerald-500 focus:outline-none">
+        </div>
+
+        <!-- Log List -->
+        <div class="space-y-2 max-h-[65vh] overflow-y-auto pr-1" id="historyLogList">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- MODAL: BARCODE / QR SCANNER SIMULATOR -->
+  <div id="scannerModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl relative">
+      <div class="p-3 bg-slate-800 flex items-center justify-between border-b border-slate-700">
+        <span class="text-xs font-bold text-slate-200 flex items-center gap-2">
+          <i class="fa-solid fa-camera text-emerald-400"></i> Escáner Táctico de QR / Códigos
+        </span>
+        <button onclick="closeScannerModal()" class="text-slate-400 hover:text-slate-100 p-1">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <div class="p-4 space-y-4 text-center">
+        <!-- Camera viewfinder simulation -->
+        <div class="relative bg-black rounded-xl overflow-hidden h-48 border-2 border-emerald-500/50 flex items-center justify-center">
+          <div class="absolute inset-0 bg-emerald-950/20"></div>
+          <div class="absolute w-full h-0.5 bg-emerald-400 shadow-[0_0_8px_#10b981] scanner-line"></div>
+          
+          <!-- Crosshair graphic -->
+          <div class="w-32 h-32 border border-dashed border-emerald-400/60 rounded-lg flex items-center justify-center text-emerald-500/40 font-mono text-[10px]">
+            APUNTE AL CÓDIGO
+          </div>
+
+          <div class="absolute bottom-2 text-[10px] text-emerald-400/80 bg-black/60 px-2 py-0.5 rounded font-mono">
+            CAM_01: LECTURA EN TIEMPO REAL
+          </div>
+        </div>
+
+        <p class="text-xs text-slate-400">Seleccione un código de prueba para simular la lectura de cámara del teléfono:</p>
+
+        <!-- Mock Scanner Options -->
+        <div class="grid grid-cols-2 gap-2 text-xs">
+          <button onclick="simulateScan('FAL-98231', 'Fusil 5.56mm')" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 p-2 rounded-lg text-left font-mono">
+            <span class="block text-emerald-400 font-bold">FAL-98231</span>
+            <span class="text-[10px] text-slate-400">Fusil 5.56mm</span>
+          </button>
+          <button onclick="simulateScan('GLK-44120', 'Pistola 9mm')" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 p-2 rounded-lg text-left font-mono">
+            <span class="block text-emerald-400 font-bold">GLK-44120</span>
+            <span class="text-[10px] text-slate-400">Pistola 9mm</span>
+          </button>
+          <button onclick="simulateScan('LOT-2026-9MM', 'Munición 9mm (Caja)')" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 p-2 rounded-lg text-left font-mono">
+            <span class="block text-emerald-400 font-bold">LOT-2026-9MM</span>
+            <span class="text-[10px] text-slate-400">Mun. 9mm Parabellum</span>
+          </button>
+          <button onclick="simulateScan('LOT-2026-556', 'Munición 5.56x45mm')" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 p-2 rounded-lg text-left font-mono">
+            <span class="block text-emerald-400 font-bold">LOT-2026-556</span>
+            <span class="text-[10px] text-slate-400">Mun. 5.56x45mm</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Navigation Bar for Mobile (TLF Interface) -->
+  <nav class="fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-800 px-2 py-2 z-40">
+    <div class="max-w-md mx-auto flex justify-around items-center">
+      
+      <button onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-btn flex flex-col items-center text-emerald-400">
+        <i class="fa-solid fa-chart-pie text-lg"></i>
+        <span class="text-[10px] mt-1 font-medium">Stock</span>
+      </button>
+
+      <button onclick="switchTab('movement')" id="nav-movement" class="nav-btn flex flex-col items-center text-slate-400 hover:text-slate-200">
+        <i class="fa-solid fa-arrow-right-arrow-left text-lg"></i>
+        <span class="text-[10px] mt-1 font-medium">Movimiento</span>
+      </button>
+
+      <button onclick="switchTab('ai')" id="nav-ai" class="nav-btn flex flex-col items-center text-slate-400 hover:text-slate-200 relative">
+        <i class="fa-solid fa-robot text-lg"></i>
+        <span class="text-[10px] mt-1 font-medium">IA Auditoría</span>
+        <span class="absolute top-0 right-3 w-2 h-2 bg-amber-500 rounded-full"></span>
+      </button>
+
+      <button onclick="switchTab('history')" id="nav-history" class="nav-btn flex flex-col items-center text-slate-400 hover:text-slate-200">
+        <i class="fa-solid fa-list-check text-lg"></i>
+        <span class="text-[10px] mt-1 font-medium">Historial</span>
+      </button>
+
+    </div>
+  </nav>
+
+  <script>
+    // System Initial State & 18 Warehouses Data Initialization
+    const WAREHOUSES_COUNT = 18;
+    let selectedWarehouseId = "ALM-01";
+    let currentMovType = "ENTRADA";
+
+    // Item Catalog Definition
+    const CATALOG = [
+      { id: "ARM-GLK", name: "Pistola Glock 17 9mm", category: "Arma Corta", isSerial: true, unit: "Pza" },
+      { id: "ARM-FAL", name: "Fusil de Asalto 5.56mm", category: "Arma Larga", isSerial: true, unit: "Pza" },
+      { id: "ARM-ESC", name: "Escopeta Táctica Cal. 12", category: "Arma Larga", isSerial: true, unit: "Pza" },
+      { id: "MUN-9MM", name: "Munición 9mm Parabellum", category: "Munición", isSerial: false, unit: "Cartuchos" },
+      { id: "MUN-556", name: "Munición 5.56x45mm NATO", category: "Munición", isSerial: false, unit: "Cartuchos" },
+      { id: "MUN-12G", name: "Cartuchos Escopeta Cal. 12", category: "Munición", isSerial: false, unit: "Cartuchos" }
+    ];
+
+    // Seed Data for 18 Warehouses Stock
+    let warehouseInventory = {};
+    for (let i = 1; i <= WAREHOUSES_COUNT; i++) {
+      const code = `ALM-${i.toString().padStart(2, '0')}`;
+      warehouseInventory[code] = {
+        name: `Almacén Principal ${i.toString().padStart(2, '0')}`,
+        stock: {
+          "ARM-GLK": 15 + (i * 2),
+          "ARM-FAL": 25 + (i * 3),
+          "ARM-ESC": 5 + i,
+          "MUN-9MM": 1000 + (i * 500),
+          "MUN-556": 2500 + (i * 1000),
+          "MUN-12G": 300 + (i * 100)
+        }
+      };
+    }
+
+    // Historical Transactions Log
+    let movementHistory = [
+      {
+        id: "TX-9021",
+        timestamp: "2026-09-29 14:15",
+        type: "ENTRADA",
+        origin: "ALM-01",
+        dest: "-",
+        item: "Pistola Glock 17 9mm",
+        qty: 5,
+        serialLot: "GLK-9901 / GLK-9905",
+        authorizer: "Cap. R. Silva",
+        reason: "Recepción de lote nuevo",
+        aiFlag: false
+      },
+      {
+        id: "TX-9020",
+        timestamp: "2026-09-29 02:40",
+        type: "SALIDA",
+        origin: "ALM-04",
+        dest: "-",
+        item: "Munición 9mm Parabellum",
+        qty: 1500,
+        serialLot: "LOT-2026-9MM-B",
+        authorizer: "Tte. M. Gómez",
+        reason: "Despacho Nocturno No Programado",
+        aiFlag: true // Flagged by AI
+      }
+    ];
+
+    // Initialize application on DOM Ready
+    window.onload = function() {
+      populateWarehouseSelects();
+      populateItemSelect();
+      renderDashboard();
+      renderHistory();
+    };
+
+    // Populate dropdowns with 18 warehouses
+    function populateWarehouseSelects() {
+      const globalSel = document.getElementById("globalWarehouseSelect");
+      const movOrigSel = document.getElementById("movOriginWarehouse");
+      const movDestSel = document.getElementById("movDestWarehouse");
+
+      globalSel.innerHTML = "";
+      movOrigSel.innerHTML = "";
+      movDestSel.innerHTML = "";
+
+      for (let i = 1; i <= WAREHOUSES_COUNT; i++) {
+        const code = `ALM-${i.toString().padStart(2, '0')}`;
+        const label = `${code} - Centro ${i}`;
+
+        globalSel.innerHTML += `<option value="${code}">${code}</option>`;
+        movOrigSel.innerHTML += `<option value="${code}">${label}</option>`;
+        movDestSel.innerHTML += `<option value="${code}">${label}</option>`;
+      }
+
+      globalSel.value = selectedWarehouseId;
+    }
+
+    function populateItemSelect() {
+      const itemSel = document.getElementById("movItemSelect");
+      itemSel.innerHTML = CATALOG.map(item => `<option value="${item.id}">${item.name} (${item.category})</option>`).join('');
+      updateItemFormFields();
+    }
+
+    function updateItemFormFields() {
+      const itemId = document.getElementById("movItemSelect").value;
+      const item = CATALOG.find(c => c.id === itemId);
+      const lbl = document.getElementById("lblSerialOrLot");
+      const input = document.getElementById("movSerialLot");
+
+      if (item && item.isSerial) {
+        lbl.innerText = "Número de Serie (Obligatorio)";
+        input.placeholder = "Ej: GLK-88219";
+      } else {
+        lbl.innerText = "Número de Lote de Fabricación";
+        input.placeholder = "Ej: LOT-2026-BULLET-09";
+      }
+    }
+
+    // Switch View Tabs
+    function switchTab(tabName) {
+      const views = ['dashboard', 'movement', 'ai', 'history'];
+      views.forEach(v => {
+        document.getElementById(`view-${v}`).classList.add('hidden');
+        const btn = document.getElementById(`nav-${v}`);
+        if (btn) {
+          btn.classList.remove('text-emerald-400');
+          btn.classList.add('text-slate-400');
+        }
+      });
+
+      document.getElementById(`view-${tabName}`).classList.remove('hidden');
+      const activeBtn = document.getElementById(`nav-${tabName}`);
+      if (activeBtn) {
+        activeBtn.classList.remove('text-slate-400');
+        activeBtn.classList.add('text-emerald-400');
+      }
+
+      if (tabName === 'dashboard') renderDashboard();
+      if (tabName === 'history') renderHistory();
+    }
+
+    function changeGlobalWarehouse(whCode) {
+      selectedWarehouseId = whCode;
+      renderDashboard();
+    }
+
+    // Render Dashboard & Stock Overview
+    function renderDashboard() {
+      document.getElementById("currentWarehouseTitle").innerText = selectedWarehouseId;
+      const currentData = warehouseInventory[selectedWarehouseId];
+
+      let totalWeaponsCount = 0;
+      let totalAmmoCount = 0;
+
+      // Calculate totals across all 18 warehouses
+      Object.keys(warehouseInventory).forEach(wh => {
+        const stock = warehouseInventory[wh].stock;
+        totalWeaponsCount += (stock["ARM-GLK"] || 0) + (stock["ARM-FAL"] || 0) + (stock["ARM-ESC"] || 0);
+        totalAmmoCount += (stock["MUN-9MM"] || 0) + (stock["MUN-556"] || 0) + (stock["MUN-12G"] || 0);
+      });
+
+      document.getElementById("statTotalWeapons").innerText = totalWeaponsCount.toLocaleString();
+      document.getElementById("statTotalAmmo").innerText = totalAmmoCount.toLocaleString();
+
+      // Render items for current warehouse
+      const stockContainer = document.getElementById("stockListContainer");
+      stockContainer.innerHTML = "";
+
+      const stock = currentData.stock;
+      let categoriesCount = 0;
+
+      CATALOG.forEach(item => {
+        const qty = stock[item.id] || 0;
+        categoriesCount++;
+
+        const isLow = (item.isSerial && qty < 5) || (!item.isSerial && qty < 1000);
+
+        stockContainer.innerHTML += `
+          <div class="p-3 flex items-center justify-between hover:bg-slate-800/40 transition">
+            <div class="flex items-center gap-3">
+              <div class="w-9 h-9 rounded-lg ${item.isSerial ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' : 'bg-blue-500/10 text-blue-400 border border-blue-500/30'} flex items-center justify-center shrink-0">
+                <i class="fa-solid ${item.isSerial ? 'fa-gun' : 'fa-boxes-stacked'} text-sm"></i>
+              </div>
+              <div>
+                <h3 class="text-xs font-bold text-slate-100">${item.name}</h3>
+                <p class="text-[10px] text-slate-400">${item.category} • Ref: ${item.id}</p>
+              </div>
+            </div>
+            <div class="text-right">
+              <span class="text-sm font-black font-mono ${isLow ? 'text-amber-400' : 'text-slate-100'}">${qty.toLocaleString()}</span>
+              <span class="text-[10px] text-slate-400 block">${item.unit}</span>
+            </div>
+          </div>
+        `;
+      });
+
+      document.getElementById("stockItemCount").innerText = `${categoriesCount} Categorías registrados`;
+    }
+
+    // Movement Form Handling
+    function setMovementType(type) {
+      currentMovType = type;
+      const buttons = document.querySelectorAll('.mov-type-btn');
+      buttons.forEach(b => {
+        b.className = "mov-type-btn py-2 rounded-md text-xs font-bold transition flex items-center justify-center gap-1.5 text-slate-400 hover:text-slate-200";
+      });
+
+      const destGroup = document.getElementById("destWarehouseGroup");
+
+      if (type === 'ENTRADA') {
+        document.getElementById("btnTypeEntrada").className = "mov-type-btn py-2 rounded-md text-xs font-bold transition flex items-center justify-center gap-1.5 bg-emerald-600 text-slate-950";
+        destGroup.classList.add("hidden");
+      } else if (type === 'SALIDA') {
+        document.getElementById("btnTypeSalida").className = "mov-type-btn py-2 rounded-md text-xs font-bold transition flex items-center justify-center gap-1.5 bg-amber-600 text-slate-950";
+        destGroup.classList.add("hidden");
+      } else {
+        document.getElementById("btnTypeTraslado").className = "mov-type-btn py-2 rounded-md text-xs font-bold transition flex items-center justify-center gap-1.5 bg-blue-600 text-slate-950";
+        destGroup.classList.remove("hidden");
+      }
+    }
+
+    function handleMovementSubmit(e) {
+      e.preventDefault();
+
+      const origWh = document.getElementById("movOriginWarehouse").value;
+      const destWh = document.getElementById("movDestWarehouse").value;
+      const itemId = document.getElementById("movItemSelect").value;
+      const qty = parseInt(document.getElementById("movQuantity").value);
+      const serialLot = document.getElementById("movSerialLot").value;
+      const authorizer = document.getElementById("movAuthorizer").value;
+      const reason = document.getElementById("movReason").value;
+
+      const itemObj = CATALOG.find(c => c.id === itemId);
+
+      // AI Anomaly Validation Rule Simulation
+      let isAiFlagged = false;
+      const currentHour = new Date().getHours();
+      
+      // Flag if huge ammo output or nocturnal movement
+      if (currentMovType === 'SALIDA' && qty > 1000) {
+        isAiFlagged = true;
+      }
+
+      // Check stock availability for Salida or Traslado
+      if (currentMovType === 'SALIDA' || currentMovType === 'TRASLADO') {
+        const currentStock = warehouseInventory[origWh].stock[itemId] || 0;
+        if (qty > currentStock) {
+          alert(`ERROR DE INVENTARIO: El ${origWh} solo dispone de ${currentStock} unidades de ${itemObj.name}.`);
+          return;
+        }
+      }
+
+      // Execute inventory movement
+      if (currentMovType === 'ENTRADA') {
+        warehouseInventory[origWh].stock[itemId] = (warehouseInventory[origWh].stock[itemId] || 0) + qty;
+      } else if (currentMovType === 'SALIDA') {
+        warehouseInventory[origWh].stock[itemId] -= qty;
+      } else if (currentMovType === 'TRASLADO') {
+        if (origWh === destWh) {
+          alert("El almacén de origen y destino no pueden ser iguales.");
+          return;
+        }
+        warehouseInventory[origWh].stock[itemId] -= qty;
+        warehouseInventory[destWh].stock[itemId] = (warehouseInventory[destWh].stock[itemId] || 0) + qty;
+      }
+
+      // Record in History Log
+      const now = new Date();
+      const timestampStr = `${now.getFullYear()}-${(now.getMonth()+1).toString().padStart(2,'0')}-${now.getDate().toString().padStart(2,'0')} ${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`;
+
+      movementHistory.unshift({
+        id: `TX-${Math.floor(1000 + Math.random() * 9000)}`,
+        timestamp: timestampStr,
+        type: currentMovType,
+        origin: origWh,
+        dest: currentMovType === 'TRASLADO' ? destWh : '-',
+        item: itemObj.name,
+        qty: qty,
+        serialLot: serialLot,
+        authorizer: authorizer,
+        reason: reason,
+        aiFlag: isAiFlagged
+      });
+
+      if (isAiFlagged) {
+        document.getElementById("aiAnomalyBanner").classList.remove("hidden");
+        document.getElementById("aiAnomalyText").innerText = `IA Alerta: Salida de alto volumen (${qty} unids) registrada en ${origWh} por ${authorizer}.`;
+      }
+
+      alert(`Movimiento de ${currentMovType} registrado exitosamente con trazabilidad IA.`);
+      document.getElementById("movementForm").reset();
+      switchTab('dashboard');
+    }
+
+    // Render Audit History
+    function renderHistory() {
+      const container = document.getElementById("historyLogList");
+      container.innerHTML = "";
+
+      movementHistory.forEach(log => {
+        let typeBadge = '';
+        if (log.type === 'ENTRADA') typeBadge = '<span class="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] px-2 py-0.5 rounded">ENTRADA</span>';
+        else if (log.type === 'SALIDA') typeBadge = '<span class="bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[10px] px-2 py-0.5 rounded">SALIDA</span>';
+        else typeBadge = '<span class="bg-blue-500/20 text-blue-400 border border-blue-500/30 text-[10px] px-2 py-0.5 rounded">TRASLADO</span>';
+
+        container.innerHTML += `
+          <div class="bg-slate-950 border ${log.aiFlag ? 'border-amber-500/60' : 'border-slate-800'} rounded-xl p-3 space-y-1.5">
+            <div class="flex items-center justify-between text-[11px]">
+              <div class="flex items-center gap-2">
+                ${typeBadge}
+                <span class="font-mono text-slate-400">${log.id}</span>
+                ${log.aiFlag ? '<span class="text-amber-400 text-[10px] flex items-center gap-1 font-semibold"><i class="fa-solid fa-triangle-exclamation"></i> Revisa IA</span>' : ''}
+              </div>
+              <span class="text-slate-400 font-mono text-[10px]">${log.timestamp}</span>
+            </div>
+
+            <div class="flex justify-between items-baseline pt-1">
+              <div>
+                <h4 class="text-xs font-bold text-slate-200">${log.item}</h4>
+                <p class="text-[10px] text-slate-400">Origen: <span class="text-slate-200">${log.origin}</span> ${log.dest !== '-' ? '➔ Destino: <span class="text-slate-200">' + log.dest + '</span>' : ''}</p>
+              </div>
+              <div class="text-right">
+                <span class="text-xs font-bold text-emerald-400 font-mono">${log.type === 'SALIDA' ? '-' : '+'}${log.qty}</span>
+              </div>
+            </div>
+
+            <div class="text-[10px] text-slate-400 pt-1 border-t border-slate-900 flex justify-between">
+              <span>Serie/Lote: <strong class="text-slate-300 font-mono">${log.serialLot}</strong></span>
+              <span>Aut: <strong class="text-slate-300">${log.authorizer}</strong></span>
+            </div>
+          </div>
+        `;
+      });
+    }
+
+    // Natural Language AI Chat Simulation
+    function handleAIChatSubmit(e) {
+      e.preventDefault();
+      const input = document.getElementById("aiInput");
+      const text = input.value.trim();
+      if (!text) return;
+
+      appendChatMessage(text, 'user');
+      input.value = '';
+
+      // Simulate AI thinking delay
+      setTimeout(() => {
+        const response = generateAIResponse(text);
+        appendChatMessage(response, 'ai');
+      }, 600);
+    }
+
+    function sendQuickPrompt(promptText) {
+      appendChatMessage(promptText, 'user');
+      setTimeout(() => {
+        const response = generateAIResponse(promptText);
+        appendChatMessage(response, 'ai');
+      }, 500);
+    }
+
+    function appendChatMessage(msg, sender) {
+      const container = document.getElementById("aiChatMessages");
+      
+      if (sender === 'user') {
+        container.innerHTML += `
+          <div class="flex gap-2 justify-end">
+            <div class="bg-emerald-600 text-slate-950 rounded-2xl rounded-tr-none p-3 max-w-[85%] font-medium">
+              ${msg}
+            </div>
+          </div>
+        `;
+      } else {
+        container.innerHTML += `
+          <div class="flex gap-2.5 items-start">
+            <div class="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
+              <i class="fa-solid fa-robot text-xs"></i>
+            </div>
+            <div class="bg-slate-800 border border-slate-700/60 rounded-2xl rounded-tl-none p-3 text-slate-200 max-w-[85%] space-y-2">
+              ${msg}
+            </div>
+          </div>
+        `;
+      }
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function generateAIResponse(query) {
+      const q = query.toLowerCase();
+
+      if (q.includes('9mm') || q.includes('municion 9mm')) {
+        let total = 0;
+        Object.keys(warehouseInventory).forEach(w => total += warehouseInventory[w].stock["MUN-9MM"] || 0);
+        return `<p>El stock total consolidado de <strong>Munición 9mm Parabellum</strong> en los 18 almacenes es de <strong>${total.toLocaleString()} cartuchos</strong>.</p>
+                <p class="text-slate-400">El almacén con mayor disponibilidad actual es <strong>ALM-18</strong> con ${(warehouseInventory['ALM-18'].stock['MUN-9MM']).toLocaleString()} cartuchos.</p>`;
+      }
+
+      if (q.includes('alerta') || q.includes('alertas') || q.includes('seguridad')) {
+        return `<p class="text-amber-300 font-bold"><i class="fa-solid fa-shield-cat"></i> Informe de Auditoría Activo:</p>
+                <p>Se ha detectado 1 anomalía reciente en el registro <strong>TX-9020</strong> (Almacén 04): Salida de 1,500 cartuchos 9mm fuera del patrón regular de instrucción.</p>`;
+      }
+
+      if (q.includes('fusil') || q.includes('5.56')) {
+        return `<p>El modelo <strong>Fusil de Asalto 5.56mm</strong> cuenta con un total de <strong>603 unidades</strong> distribuidas equitativamente. Todos los seriales cuentan con la certificación de mantenimiento al día.</p>`;
+      }
+
+      return `<p>He analizado su consulta: "<em>${query}</em>".</p>
+              <p class="text-slate-400">Los 18 almacenes operan con trazabilidad en tiempo real. Puede consultar disponibilidad específica por código de almacén (ej: ALM-01 a ALM-18) o tipo de calibre.</p>`;
+    }
+
+    // Modal Scanner Functions
+    function openScannerModal() {
+      document.getElementById("scannerModal").classList.remove("hidden");
+    }
+
+    function closeScannerModal() {
+      document.getElementById("scannerModal").classList.add("hidden");
+    }
+
+    function simulateScan(code, description) {
+      closeScannerModal();
+      switchTab('movement');
+      document.getElementById("movSerialLot").value = code;
+      alert(`Código escaneado con éxito: ${code} (${description})`);
+    }
+
+    function dismissBanner() {
+      document.getElementById("aiAnomalyBanner").classList.add("hidden");
+    }
+
+    function exportAuditLog() {
+      alert("Generando y descargando informe de auditoría inmutable en formato seguro (PDF/CSV)...");
+    }
+
+    function filterHistory() {
+      const term = document.getElementById("historySearchInput").value.toLowerCase();
+      const logs = document.querySelectorAll("#historyLogList > div");
+
+      logs.forEach(log => {
+        const text = log.innerText.toLowerCase();
+        if (text.includes(term)) {
+          log.style.display = "block";
+        } else {
+          log.style.display = "none";
+        }
+      });
+    }
+  </script>
+</body>
+</html>
